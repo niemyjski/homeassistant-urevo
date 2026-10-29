@@ -13,4 +13,4 @@ serialx==1.11.0
 # Imported by HA's USB/Supervisor support, even with all I/O mocked.
 aiohasupervisor==0.6.0
 cronsim==2.7
-securetar==2026.4.1
+securetar==2026.10.0
