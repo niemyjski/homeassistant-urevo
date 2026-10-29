@@ -1,0 +1,37 @@
+{
+  "title": "UREVO Local",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Select your UREVO walking pad",
+        "data": {
+          "address": "Walking pad"
+        }
+      },
+      "confirm": {
+        "title": "Connect UREVO walking pad",
+        "description": "Read workout telemetry from {address}. Setup will not start, stop, reset, or change treadmill speed."
+      }
+    },
+    "abort": {
+      "already_configured": "This walking pad is already configured.",
+      "no_devices_found": "No URTM041 walking pad is visible. Power it on without starting the belt and close its phone app.",
+      "not_supported": "This model is not supported by this experimental integration."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Manual treadmill controls",
+        "description": "Leave controls disabled until telemetry has been checked against the console. Start resumes the treadmill's stored speed; the speed-change limit cannot constrain that stored starting speed. Keep the physical remote accessible. Arm expires after 60 seconds or one action; reconnecting clears it. Bluetooth Stop is not an emergency stop.",
+        "data": {
+          "allow_control": "Allow manual controls",
+          "max_speed": "Maximum commanded speed (km/h)"
+        }
+      }
+    },
+    "error": {
+      "invalid_options": "Enter a finite speed between 0.5 and 6.4 km/h."
+    }
+  }
+}

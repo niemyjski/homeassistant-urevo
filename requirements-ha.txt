@@ -1,0 +1,2 @@
+# Supported baseline; isolated API tests never connect to Bluetooth.
+homeassistant==2026.10.4
