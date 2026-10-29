@@ -1,23 +1,23 @@
 {
   "domain": "urevo_local",
   "name": "UREVO Local",
-  "version": "0.1.2",
-  "config_flow": true,
-  "integration_type": "device",
-  "iot_class": "local_push",
-  "dependencies": [
-    "bluetooth"
-  ],
-  "requirements": [],
-  "codeowners": [
-    "@niemyjski"
-  ],
   "bluetooth": [
     {
       "local_name": "URTM041",
       "connectable": true
     }
   ],
+  "codeowners": [
+    "@niemyjski"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "bluetooth"
+  ],
   "documentation": "https://github.com/niemyjski/homeassistant-urevo",
-  "issue_tracker": "https://github.com/niemyjski/homeassistant-urevo/issues"
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/niemyjski/homeassistant-urevo/issues",
+  "requirements": [],
+  "version": "0.1.2"
 }

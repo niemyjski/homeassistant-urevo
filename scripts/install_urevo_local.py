@@ -9,9 +9,13 @@ from pathlib import Path
 
 
 def files_at(source):
-    return {
+    files = {
         p.name: p.read_bytes() for p in source.iterdir() if p.suffix in (".py", ".json")
     }
+    icon = source / "brand/icon.png"
+    if icon.is_file():
+        files["brand/icon.png"] = icon.read_bytes()
+    return files
 
 
 def installed_files(target):
@@ -38,6 +42,7 @@ def install(files, config_root, apply=False, upgrade=False):
         "number.py",
         "button.py",
         "switch.py",
+        "brand/icon.png",
     }
     if set(files) != required:
         raise ValueError("Unexpected integration file inventory")
@@ -46,7 +51,7 @@ def install(files, config_root, apply=False, upgrade=False):
     for name, content in files.items():
         if name.endswith(".py"):
             compile(content, name, "exec")
-        else:
+        elif name.endswith(".json"):
             json.loads(content)
     hashes = {
         name: hashlib.sha256(content).hexdigest() for name, content in files.items()
@@ -92,7 +97,9 @@ def install(files, config_root, apply=False, upgrade=False):
     target.parent.mkdir(exist_ok=True)
     stage = Path(tempfile.mkdtemp(prefix=".urevo-stage-", dir=config_root))
     for name, content in files.items():
-        (stage / name).write_bytes(content)
+        path = stage / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
     (stage / "translations").mkdir()
     (stage / "translations" / "en.json").write_bytes(files["strings.json"])
     receipt = {

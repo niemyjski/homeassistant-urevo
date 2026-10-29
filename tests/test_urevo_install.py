@@ -84,6 +84,22 @@ class InstallTests(unittest.TestCase):
             self.run_install(True, True)
         self.assertEqual(translation.read_text(), '{"user": "custom translation"}')
 
+    def test_upgrade_from_receipt_without_brand_asset(self):
+        self.run_install(True)
+        target = self.root / "custom_components/urevo_local"
+        (target / "brand/icon.png").unlink()
+        (target / "brand").rmdir()
+        receipt_path = self.root / ".urevo-local-install-receipt.json"
+        receipt = json.loads(receipt_path.read_text())
+        del receipt["hashes"]["brand/icon.png"]
+        receipt_path.write_text(json.dumps(receipt))
+        self.run_install(True, True)
+        self.assertEqual(
+            (target / "brand/icon.png").read_bytes(), self.files["brand/icon.png"]
+        )
+        backup = Path(json.loads(receipt_path.read_text())["backup"])
+        self.assertFalse((backup / "urevo_local/brand/icon.png").exists())
+
     def test_upgrade_preserves_unknown_file(self):
         self.run_install(True)
         extra = self.root / "custom_components/urevo_local/private.txt"

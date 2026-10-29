@@ -48,5 +48,3 @@ jobs:
         with:
           category: integration
           comment: false
-          # Custom repository; default-catalog inclusion is a separate process.
-          ignore: brands
