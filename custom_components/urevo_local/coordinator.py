@@ -54,6 +54,7 @@ class UrevoCoordinator(DataUpdateCoordinator):
         self.client: BleakClient | None = None
         self.values: dict[str, float | str] = {}
         self.seen: dict[str, float] = {}
+        self.telemetry_frames: dict[str, str] = {}
         self.limits: tuple[float, float, float] | None = None
         self.speed_supported = False
         self.control_supported = False
@@ -154,6 +155,7 @@ class UrevoCoordinator(DataUpdateCoordinator):
             )
             return
         self.values.update(values)
+        self.telemetry_frames["ftms"] = bytes(payload).hex()
         self.seen.update({key: time.monotonic() for key in values})
         self._publish()
 
@@ -174,6 +176,7 @@ class UrevoCoordinator(DataUpdateCoordinator):
             _LOGGER.debug("Discarded UREVO step frame: %s", bytes(payload).hex())
             return
         self.values.update(steps=steps, steps_elapsed=elapsed)
+        self.telemetry_frames["urevo"] = bytes(payload).hex()
         now = time.monotonic()
         self.seen.update(steps=now, steps_elapsed=now)
         self._publish()
@@ -207,6 +210,7 @@ class UrevoCoordinator(DataUpdateCoordinator):
             self.armed_until = 0
             self.seen.clear()
             self.values.clear()
+            self.telemetry_frames.clear()
             self.limits = None
             self.speed_supported = False
             self.control_supported = False

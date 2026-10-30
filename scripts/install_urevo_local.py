@@ -36,6 +36,7 @@ def install(files, config_root, apply=False, upgrade=False):
         "__init__.py",
         "protocol.py",
         "steps.py",
+        "diagnostics.py",
         "coordinator.py",
         "config_flow.py",
         "entity.py",

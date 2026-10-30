@@ -20,6 +20,32 @@ vol = flow_module.vol
 
 
 class IntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_diagnostics_reports_only_bounded_telemetry(self):
+        diagnostics = importlib.import_module(
+            "custom_components.urevo_local.diagnostics"
+        )
+        coordinator_module = importlib.import_module(
+            "custom_components.urevo_local.coordinator"
+        )
+        coordinator = coordinator_module.UrevoCoordinator(self.hass, self.entry)
+        self.entry.runtime_data = coordinator
+        coordinator.client = types.SimpleNamespace(is_connected=True)
+        frame = bytes.fromhex("0251030e007c0003002c007e0000000000d703")
+        coordinator._steps(None, frame)
+        coordinator._steps(None, b"invalid")
+        result = await diagnostics.async_get_config_entry_diagnostics(
+            self.hass, self.entry
+        )
+        self.assertTrue(result["connected"])
+        self.assertEqual(result["last_valid_frames"], {"urevo": frame.hex()})
+        self.assertEqual(result["values"]["steps"], 126)
+        self.assertGreaterEqual(result["age_seconds"]["steps"], 0)
+        self.assertNotIn(self.entry.data["address"], str(result))
+        result["values"].clear()
+        self.assertEqual(coordinator.values["steps"], 126)
+        if coordinator._expiry_handle:
+            coordinator._expiry_handle.cancel()
+
     async def test_total_steps_restore_duplicate_disconnect_and_reset(self):
         sensor_module = importlib.import_module("custom_components.urevo_local.sensor")
         coordinator = types.SimpleNamespace(
