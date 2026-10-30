@@ -29,6 +29,22 @@ steps_module = load("urevo_test.steps", ROOT / "steps.py")
 
 
 class ProtocolTests(unittest.TestCase):
+    def test_us_proprietary_measurements_match_ftms_resolution(self):
+        native = bytes.fromhex("02510a0000b30107007e0000000003b80b0603")
+        ftms = bytes.fromhex("842500006e00000c0000000000b301000000")
+        expected = protocol.decode_urtm041(ftms)
+        values = protocol.decode_urevo_us(native)
+        self.assertEqual(values, {key: expected[key] for key in values})
+        for raw, kmh in ((6, 0.96), (8, 1.28), (10, 1.60), (40, 6.43)):
+            frame = bytearray(native)
+            frame[3] = raw
+            self.assertEqual(protocol.decode_urevo_us(frame)["speed"], kmh)
+        for raw in (41, 256):
+            frame = bytearray(native)
+            frame[3:5] = raw.to_bytes(2, "little")
+            with self.assertRaises(ValueError):
+                protocol.decode_urevo_us(frame)
+
     def test_actual_step_frames_and_reject_truncated_status(self):
         running = bytes.fromhex("0251030e007c0003002c007e0000000000d703")
         paused = bytes.fromhex("02510a00004a010b008200760100000000f603")
@@ -250,6 +266,28 @@ class SafetyTests(unittest.IsolatedAsyncioTestCase):
             self.c._response(None, bytes([0x80, payload[0], 1]))
 
         self.client.write_gatt_char.side_effect = write
+
+    async def test_native_mode_keeps_session_telemetry_fresh_without_ftms(self):
+        self.c.limits = (0.96, 6.43, 0.32)
+        self.c.seen.clear()
+        frame = bytes.fromhex("0251030e007c0003002c007e0000000000d703")
+        self.c._steps(None, frame)
+        for key in ("speed", "elapsed", "distance", "calories", "steps"):
+            self.assertTrue(self.c.fresh(key), key)
+        self.assertEqual(self.c.values["speed"], 2.25)
+        self.assertEqual(self.c.values["elapsed"], 124)
+        self.assertEqual(self.c.values["distance"], 40)
+        self.assertEqual(self.c.values["calories"], 4)
+        self.assertEqual(self.c.values["steps"], 126)
+        self.client.write_gatt_char.assert_not_called()
+        self.c._steps(None, bytes.fromhex("025106010003"))
+        self.assertEqual(self.c.values["steps"], 126)
+
+    async def test_unverified_unit_profile_does_not_invent_speed(self):
+        self.c.seen.clear()
+        self.c._steps(None, bytes.fromhex("0251030e007c0003002c007e0000000000d703"))
+        self.assertTrue(self.c.fresh("steps"))
+        self.assertFalse(self.c.fresh("speed"))
 
     async def test_connection_subscribes_without_control_writes(self):
         self.c.client = None

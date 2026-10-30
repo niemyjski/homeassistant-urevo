@@ -25,6 +25,25 @@ def decode_steps(data: bytes) -> tuple[int, int]:
     return int.from_bytes(data[11:13], "little"), int.from_bytes(data[5:7], "little")
 
 
+def decode_urevo_us(data: bytes) -> dict[str, float]:
+    """Decode the imperial URTM041 stream at its FTMS measurement resolution.
+
+    Native distance is hundredths of a mile and speed tenths of mph. Matching
+    FTMS's truncated units prevents a source change from looking like a session
+    reset to downstream cumulative meters. Only use with the verified US range.
+    """
+    _, elapsed = decode_steps(data)
+    speed = int.from_bytes(data[3:5], "little")
+    if speed > 40:
+        raise ValueError("Invalid US UREVO speed")
+    return {
+        "speed": (speed * 1609344 // 100000) / 100,
+        "distance": (int.from_bytes(data[7:9], "little") * 1609344 // 1000000) * 10,
+        "calories": int.from_bytes(data[9:11], "little") // 10,
+        "elapsed": elapsed,
+    }
+
+
 def decode_treadmill(data: bytes) -> dict[str, float]:
     """Reject malformed frames; optional fields retain their SIG wire order."""
     if len(data) < 2:

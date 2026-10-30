@@ -32,6 +32,7 @@ from .protocol import (
     UREVO_QUERY,
     UREVO_SUBSCRIBE,
     decode_steps,
+    decode_urevo_us,
     decode_urtm041,
     speed_command,
 )
@@ -179,6 +180,16 @@ class UrevoCoordinator(DataUpdateCoordinator):
         self.telemetry_frames["urevo"] = bytes(payload).hex()
         now = time.monotonic()
         self.seen.update(steps=now, steps_elapsed=now)
+        # This firmware selects either FTMS or proprietary reporting. The US
+        # profile is identified by its captured FTMS range, never HA display units.
+        if self.limits == (0.96, 6.43, 0.32):
+            try:
+                values = decode_urevo_us(bytes(payload))
+            except ValueError:
+                _LOGGER.debug("Invalid US UREVO measurements: %s", bytes(payload).hex())
+            else:
+                self.values.update(values)
+                self.seen.update({key: now for key in values})
         self._publish()
 
     async def _request_steps(self, client: BleakClient) -> None:

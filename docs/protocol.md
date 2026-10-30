@@ -9,6 +9,31 @@ step telemetry because a device reset can stop the proprietary stream.
 Missing optional characteristics or a failed request leave steps unavailable
 without disabling FTMS readings and controls.
 
+### Reporting modes on the US URTM041
+
+Activating the proprietary stream can stop FTMS notifications. FTMS control can
+switch it back. Do not assume both channels continue streaming concurrently.
+The US range `600083022000` identifies the verified imperial profile. Its full
+proprietary frames also provide speed (word at 3–4, tenths of mph), distance
+(7–8, hundredths of a mile), calories (9–10, tenths of kcal), and elapsed seconds.
+These refresh the existing session sensors alongside steps. Other ranges retain
+step-only decoding until their units are verified; HA display units never select
+the wire conversion.
+
+For continuity with existing FTMS accounting, convert with exact integer
+arithmetic and truncate speed to hundredths of km/h, distance to tens of meters,
+and calories to whole kcal. An empty-belt paused capture
+`02510a0000b30107007e0000000003b80b0603` agrees with FTMS
+`842500006e00000c0000000000b301000000`: 435 seconds, 110 meters, 12 kcal,
+zero speed and zero steps. This verifies cross-channel units and stationary
+telemetry, not physical step accuracy. Short status frames never synthesize speed.
+
+[Walker's iOS packet-capture findings](https://github.com/apanloco/walker/blob/main/CLAUDE.md)
+independently document mode switching. Existing FTMS commands retain their
+acknowledgments and safety gates; proprietary motor commands are not introduced.
+Integration diagnostics expose only the last valid packet for each channel,
+measurement values and their ages, without device identifiers or credentials.
+
 Published 19-byte frames begin `02 51` and end `03`. Session steps are the
 little-endian word at offsets 11–12 and elapsed seconds at 5–6. For example,
 `0251030e007c0003002c007e0000000000d703` reports 126 steps and 124 seconds;
