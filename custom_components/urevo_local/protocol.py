@@ -61,6 +61,20 @@ def decode_treadmill(data: bytes) -> dict[str, float]:
     return result
 
 
+def decode_urtm041(data: bytes) -> dict[str, float]:
+    """Decode standard FTMS or the captured URTM041 18-byte telemetry profile.
+
+    This model adds bit 13 and three trailing vendor bytes to the standard
+    speed/distance/energy/heart-rate/elapsed layout. Their meaning is not
+    established, so they are deliberately not exposed as measurements.
+    """
+    if data[:2] == b"\x84\x25":
+        if len(data) != 18:
+            raise ValueError("Invalid URTM041 extended frame length")
+        return decode_treadmill(b"\x84\x05" + data[2:15])
+    return decode_treadmill(data)
+
+
 def speed_command(
     speed: float, limits: tuple[float, float, float], cap: float
 ) -> bytes:

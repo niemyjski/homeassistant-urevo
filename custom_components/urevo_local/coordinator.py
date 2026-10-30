@@ -28,7 +28,7 @@ from .protocol import (
     FEATURE,
     SPEED_RANGE,
     STATUS,
-    decode_treadmill,
+    decode_urtm041,
     speed_command,
 )
 
@@ -139,7 +139,7 @@ class UrevoCoordinator(DataUpdateCoordinator):
 
     def _data(self, sender: BleakGATTCharacteristic, payload: bytearray) -> None:
         try:
-            values = decode_treadmill(bytes(payload))
+            values = decode_urtm041(bytes(payload))
         except ValueError:
             _LOGGER.debug(
                 "Discarded malformed treadmill data: %s", bytes(payload).hex()

@@ -28,6 +28,39 @@ protocol = load("urevo_test.protocol", ROOT / "protocol.py")
 
 
 class ProtocolTests(unittest.TestCase):
+    def test_urtm041_captured_extended_frame(self):
+        frame = bytes.fromhex("8425 0101 5e0100 1400 0000 00 00 8b01 fa0000")
+        self.assertEqual(
+            protocol.decode_urtm041(frame),
+            {
+                "speed": 2.57,
+                "distance": 350,
+                "calories": 20,
+                "calories_per_hour": 0,
+                "calories_per_minute": 0,
+                "heart_rate": 0,
+                "elapsed": 395,
+            },
+        )
+        with self.assertRaises(ValueError):
+            protocol.decode_treadmill(frame)
+        for size in range(len(frame)):
+            with self.subTest(size=size), self.assertRaises(ValueError):
+                protocol.decode_urtm041(frame[:size])
+        for invalid in (frame + b"\x00", b"\x84\x65" + frame[2:]):
+            with self.assertRaises(ValueError):
+                protocol.decode_urtm041(invalid)
+
+    def test_urtm041_idle_and_opaque_extension(self):
+        idle = bytes.fromhex("842500000000000000000000000000000000")
+        self.assertEqual(protocol.decode_urtm041(idle)["speed"], 0)
+        self.assertEqual(
+            protocol.decode_urtm041(idle),
+            protocol.decode_urtm041(idle[:15] + b"\xff\xff\xff"),
+        )
+        standard = bytes.fromhex("00009600")
+        self.assertEqual(protocol.decode_urtm041(standard), {"speed": 1.5})
+
     def test_speed_distance_energy_elapsed(self):
         frame = bytes.fromhex("8404 9600 d20400 2a00 6400 02 5802")
         self.assertEqual(
