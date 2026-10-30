@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5 — 2026-10-30
+
+- Use advertised write-without-response support for URTM041 control transport;
+  still require the separate FTMS success acknowledgment for every command.
+- Accept the observed 0.96–6.43 km/h device range with 0.32 km/h increments.
+  The configured commanded-speed cap remains unchanged.
+
 ## 0.1.4 — 2026-10-30
 
 - Add debug-only FTMS capability, acknowledgment, and command-failure logging

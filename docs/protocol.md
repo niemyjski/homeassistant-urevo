@@ -17,3 +17,17 @@ measurements. This establishes packet reception and decoding, not accuracy of
 every workout field or acceptance of motor commands. Standard FTMS parsing
 remains strict, and unknown extended layouts remain rejected. Missing or stale
 data is never converted to a stopped belt.
+
+## Control transport and speed range
+
+TreadSpan's `urevo-with-kinomap.pcapng` capture shows ATT Write Commands
+(`0x52`) on control handle `0x0027`, followed by FTMS notifications such as
+`800001`, `800701`, and `800801`. A physical URTM041 rejected ATT Write Requests
+with `Write not permitted` during Request Control. Select write-without-response
+when the characteristic advertises it; never retry a failed write in another
+mode. The FTMS acknowledgment remains mandatory before the next command.
+
+The observed range bytes `600083022000` decode to 0.96–6.43 km/h in 0.32 km/h
+increments. Range validation allows up to 6.5 km/h to accommodate this converted
+imperial range; the configured speed-command cap (default 1.6 km/h, maximum
+6.4 km/h) still limits every commanded target independently.

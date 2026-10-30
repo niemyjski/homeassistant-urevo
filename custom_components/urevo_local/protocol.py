@@ -84,7 +84,7 @@ def speed_command(
         for value in (speed, minimum, maximum, step, cap)
     ):
         raise ValueError("Speed and limits must be finite numbers")
-    if not 0 <= minimum < maximum <= 6.4 or step <= 0 or step > maximum - minimum:
+    if not 0 <= minimum < maximum <= 6.5 or step <= 0 or step > maximum - minimum:
         raise ValueError("Invalid treadmill speed range")
     if not math.isfinite(speed) or not minimum <= speed <= min(maximum, cap):
         raise ValueError("Speed outside configured walking limit")

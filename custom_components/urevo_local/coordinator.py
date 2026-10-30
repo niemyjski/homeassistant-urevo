@@ -53,6 +53,7 @@ class UrevoCoordinator(DataUpdateCoordinator):
         self.limits: tuple[float, float, float] | None = None
         self.speed_supported = False
         self.control_supported = False
+        self._control_write_response = True
         self.armed_until = 0
         self._pending: tuple[int, asyncio.Future[int]] | None = None
         self._command_lock = asyncio.Lock()
@@ -207,14 +208,18 @@ class UrevoCoordinator(DataUpdateCoordinator):
                     _LOGGER.debug("FTMS speed range: %s", raw.hex())
                     if len(raw) == 6:
                         minimum, maximum, step = struct.unpack("<HHH", raw)
-                        if 0 < step <= maximum - minimum and minimum < maximum <= 640:
+                        if 0 < step <= maximum - minimum and minimum < maximum <= 650:
                             self.limits = (minimum / 100, maximum / 100, step / 100)
                 await client.start_notify(DATA, self._notification(client, self._data))
                 if client.services.get_characteristic(STATUS):
                     await client.start_notify(
                         STATUS, self._notification(client, self._status)
                     )
-                if client.services.get_characteristic(CONTROL):
+                if control := client.services.get_characteristic(CONTROL):
+                    _LOGGER.debug("FTMS control properties: %s", control.properties)
+                    self._control_write_response = (
+                        "write-without-response" not in control.properties
+                    )
                     await client.start_notify(
                         CONTROL, self._notification(client, self._response)
                     )
@@ -261,8 +266,10 @@ class UrevoCoordinator(DataUpdateCoordinator):
         self._pending = (command[0], future)
         try:
             async with asyncio.timeout(5):
-                await client.write_gatt_char(CONTROL, command, response=True)
-                _LOGGER.debug("FTMS control write acknowledged: %s", command.hex())
+                await client.write_gatt_char(
+                    CONTROL, command, response=self._control_write_response
+                )
+                _LOGGER.debug("FTMS control write sent: %s", command.hex())
                 result = await future
             if result != 1:
                 raise HomeAssistantError(

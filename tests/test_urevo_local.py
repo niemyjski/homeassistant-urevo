@@ -126,6 +126,9 @@ class ProtocolTests(unittest.TestCase):
                 protocol.speed_command(value, (0.5, 6, 0.1), 1.6)
 
     def test_invalid_range_or_cap_cannot_bypass_limit(self):
+        self.assertEqual(
+            protocol.speed_command(1.6, (0.96, 6.43, 0.32), 1.6), b"\x02\xa0\x00"
+        )
         for cap in (float("nan"), float("inf"), True):
             with self.subTest(cap=cap), self.assertRaises(ValueError):
                 protocol.speed_command(4, (0.5, 6, 0.1), cap)
@@ -216,7 +219,9 @@ class SafetyTests(unittest.IsolatedAsyncioTestCase):
     async def test_connection_subscribes_without_control_writes(self):
         self.c.client = None
         self.client.services = types.SimpleNamespace(
-            get_characteristic=lambda uuid: object()
+            get_characteristic=lambda uuid: types.SimpleNamespace(
+                properties=["write-without-response"]
+            )
         )
         self.client.start_notify = AsyncMock()
 
@@ -233,6 +238,26 @@ class SafetyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.c.limits, (0.5, 6, 0.1))
         self.client.write_gatt_char.assert_not_called()
         self.assertFalse(self.c.armed)
+        self.assertFalse(self.c._control_write_response)
+
+    async def test_write_without_response_still_requires_ftms_ack(self):
+        self.c._control_write_response = False
+        self.acknowledge()
+        self.c.arm()
+        await self.c.command("start")
+        self.assertEqual(self.client.write_gatt_char.call_count, 2)
+        for call in self.client.write_gatt_char.call_args_list:
+            self.assertFalse(call.kwargs["response"])
+
+        async def reject(uuid, payload, **kwargs):
+            self.c._response(None, bytes([0x80, payload[0], 2]))
+
+        self.client.write_gatt_char.reset_mock(side_effect=True)
+        self.client.write_gatt_char.side_effect = reject
+        self.c.arm()
+        with self.assertRaisesRegex(RuntimeError, "Command failed"):
+            await self.c.command("start")
+        self.assertEqual(self.client.write_gatt_char.call_count, 1)
         self.assertFalse(self.c.fresh("speed"))
 
     async def test_default_control_disabled(self):
