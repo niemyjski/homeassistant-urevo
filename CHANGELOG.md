@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 — 2026-10-30
+
+- Add debug-only FTMS capability, acknowledgment, and command-failure logging
+  to distinguish protocol rejection from transport failure during attended tests.
+  Command behavior and safety checks are unchanged.
+
 ## 0.1.3 — 2026-10-30
 
 - Decode the URTM041's captured 18-byte `0x2584` telemetry profile instead of

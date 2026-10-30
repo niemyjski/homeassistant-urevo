@@ -160,6 +160,7 @@ class UrevoCoordinator(DataUpdateCoordinator):
         self._publish()
 
     def _response(self, sender: BleakGATTCharacteristic, payload: bytearray) -> None:
+        _LOGGER.debug("FTMS control response: %s", bytes(payload).hex())
         if len(payload) < 3 or payload[0] != 0x80 or self._pending is None:
             return
         opcode, future = self._pending
@@ -195,6 +196,7 @@ class UrevoCoordinator(DataUpdateCoordinator):
                     raise UpdateFailed("Treadmill does not expose FTMS treadmill data")
                 if client.services.get_characteristic(FEATURE):
                     features = bytes(await client.read_gatt_char(FEATURE))
+                    _LOGGER.debug("FTMS features: %s", features.hex())
                     self.speed_supported = len(features) == 8 and bool(
                         int.from_bytes(features[4:], "little") & 1
                     )
@@ -202,6 +204,7 @@ class UrevoCoordinator(DataUpdateCoordinator):
                     SPEED_RANGE
                 ):
                     raw = bytes(await client.read_gatt_char(SPEED_RANGE))
+                    _LOGGER.debug("FTMS speed range: %s", raw.hex())
                     if len(raw) == 6:
                         minimum, maximum, step = struct.unpack("<HHH", raw)
                         if 0 < step <= maximum - minimum and minimum < maximum <= 640:
@@ -259,6 +262,7 @@ class UrevoCoordinator(DataUpdateCoordinator):
         try:
             async with asyncio.timeout(5):
                 await client.write_gatt_char(CONTROL, command, response=True)
+                _LOGGER.debug("FTMS control write acknowledged: %s", command.hex())
                 result = await future
             if result != 1:
                 raise HomeAssistantError(
@@ -365,6 +369,7 @@ class UrevoCoordinator(DataUpdateCoordinator):
                 await self._disconnect(client)
                 raise
             except Exception as error:
+                _LOGGER.debug("FTMS %s command failed", action, exc_info=True)
                 # Unknown outcome: discard the connection, never retry a motor command.
                 await self._disconnect(client)
                 raise HomeAssistantError(
