@@ -9,6 +9,20 @@ FEATURE = "00002acc" + BASE
 SPEED_RANGE = "00002ad4" + BASE
 CONTROL = "00002ad9" + BASE
 STATUS = "00002ada" + BASE
+UREVO_DATA = "0000fff1" + BASE
+UREVO_QUERY = "0000fff2" + BASE
+UREVO_SUBSCRIBE = bytes.fromhex("02510b03")
+
+
+def decode_steps(data: bytes) -> tuple[int, int]:
+    """Read steps and session seconds from the captured 19-byte UREVO frame.
+
+    Byte 17 is opaque; no checksum algorithm has been established. Bluetooth
+    supplies transport integrity. Short status/command responses are not data.
+    """
+    if len(data) != 19 or data[:2] != b"\x02\x51" or data[-1] != 3:
+        raise ValueError("Invalid UREVO step frame")
+    return int.from_bytes(data[11:13], "little"), int.from_bytes(data[5:7], "little")
 
 
 def decode_treadmill(data: bytes) -> dict[str, float]:

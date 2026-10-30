@@ -28,6 +28,10 @@ from .protocol import (
     FEATURE,
     SPEED_RANGE,
     STATUS,
+    UREVO_DATA,
+    UREVO_QUERY,
+    UREVO_SUBSCRIBE,
+    decode_steps,
     decode_urtm041,
     speed_command,
 )
@@ -54,6 +58,8 @@ class UrevoCoordinator(DataUpdateCoordinator):
         self.speed_supported = False
         self.control_supported = False
         self._control_write_response = True
+        self._steps_query_response: bool | None = None
+        self._steps_query_at = float("-inf")
         self.armed_until = 0
         self._pending: tuple[int, asyncio.Future[int]] | None = None
         self._command_lock = asyncio.Lock()
@@ -129,6 +135,7 @@ class UrevoCoordinator(DataUpdateCoordinator):
         self._safety_revision += 1
         self.armed_until = 0
         self.control_supported = False
+        self._steps_query_response = None
         self.seen.clear()
         if self._pending and not self._pending[1].done():
             self._pending[1].set_exception(
@@ -159,6 +166,24 @@ class UrevoCoordinator(DataUpdateCoordinator):
         # A status message is not a speed measurement.
         self.values["machine_status"] = bytes(payload).hex()
         self._publish()
+
+    def _steps(self, sender: BleakGATTCharacteristic, payload: bytearray) -> None:
+        try:
+            steps, elapsed = decode_steps(bytes(payload))
+        except ValueError:
+            _LOGGER.debug("Discarded UREVO step frame: %s", bytes(payload).hex())
+            return
+        self.values.update(steps=steps, steps_elapsed=elapsed)
+        now = time.monotonic()
+        self.seen.update(steps=now, steps_elapsed=now)
+        self._publish()
+
+    async def _request_steps(self, client: BleakClient) -> None:
+        self._steps_query_at = time.monotonic()
+        async with asyncio.timeout(5):
+            await client.write_gatt_char(
+                UREVO_QUERY, UREVO_SUBSCRIBE, response=self._steps_query_response
+            )
 
     def _response(self, sender: BleakGATTCharacteristic, payload: bytearray) -> None:
         _LOGGER.debug("FTMS control response: %s", bytes(payload).hex())
@@ -211,6 +236,20 @@ class UrevoCoordinator(DataUpdateCoordinator):
                         if 0 < step <= maximum - minimum and minimum < maximum <= 650:
                             self.limits = (minimum / 100, maximum / 100, step / 100)
                 await client.start_notify(DATA, self._notification(client, self._data))
+                if client.services.get_characteristic(UREVO_DATA) and (
+                    query := client.services.get_characteristic(UREVO_QUERY)
+                ):
+                    try:
+                        await client.start_notify(
+                            UREVO_DATA, self._notification(client, self._steps)
+                        )
+                        # This requests telemetry; it does not start/reset the belt.
+                        self._steps_query_response = "write" in query.properties
+                        await self._request_steps(client)
+                    except Exception:
+                        _LOGGER.warning(
+                            "UREVO step telemetry setup failed", exc_info=True
+                        )
                 if client.services.get_characteristic(STATUS):
                     await client.start_notify(
                         STATUS, self._notification(client, self._status)
@@ -237,6 +276,17 @@ class UrevoCoordinator(DataUpdateCoordinator):
             raise UpdateFailed(str(error)) from error
         if not self.fresh("speed"):
             self.armed_until = 0
+        if (
+            self.client
+            and self._steps_query_response is not None
+            and not self.fresh("steps")
+            and time.monotonic() - self._steps_query_at >= FRESH_SECONDS
+            and not self._command_lock.locked()
+        ):
+            try:
+                await self._request_steps(self.client)
+            except Exception:
+                _LOGGER.warning("UREVO step telemetry request failed", exc_info=True)
         return dict(self.values)
 
     def arm(self) -> None:

@@ -25,9 +25,44 @@ package = types.ModuleType("urevo_test")
 package.__path__ = [str(ROOT)]
 sys.modules[package.__name__] = package
 protocol = load("urevo_test.protocol", ROOT / "protocol.py")
+steps_module = load("urevo_test.steps", ROOT / "steps.py")
 
 
 class ProtocolTests(unittest.TestCase):
+    def test_actual_step_frames_and_reject_truncated_status(self):
+        running = bytes.fromhex("0251030e007c0003002c007e0000000000d703")
+        paused = bytes.fromhex("02510a00004a010b008200760100000000f603")
+        self.assertEqual(protocol.decode_steps(running), (126, 124))
+        self.assertEqual(protocol.decode_steps(paused), (374, 330))
+        for size in range(len(running)):
+            with self.subTest(size=size), self.assertRaises(ValueError):
+                protocol.decode_steps(running[:size])
+        for frame in (running + b"\x00", b"\x03" + running[1:], running[:-1] + b"\x00"):
+            with self.assertRaises(ValueError):
+                protocol.decode_steps(frame)
+
+    def test_steps_stop_start_pause_and_duplicate_packets(self):
+        counter = steps_module.StepCounter()
+        for steps, elapsed in [
+            (0, 0),
+            (10, 12),
+            (10, 12),
+            (10, 12),
+            (12, 14),
+            (0, 0),
+            (3, 4),
+        ]:
+            counter.update(steps, elapsed)
+        self.assertEqual(counter.total, 15)
+
+    def test_steps_restore_and_new_session_first_packet_not_zero(self):
+        counter = steps_module.StepCounter(100, 20, 40)
+        self.assertEqual(counter.update(20, 40), 100)
+        self.assertEqual(counter.update(22, 42), 102)
+        self.assertEqual(counter.update(3, 5), 105)
+        # Reset detectable from elapsed even when the new count is larger.
+        self.assertEqual(counter.update(4, 2), 109)
+
     def test_urtm041_captured_extended_frame(self):
         frame = bytes.fromhex("8425 0101 5e0100 1400 0000 00 00 8b01 fa0000")
         self.assertEqual(
@@ -236,7 +271,9 @@ class SafetyTests(unittest.IsolatedAsyncioTestCase):
         self.establish.return_value = self.client
         await self.c._connect()
         self.assertEqual(self.c.limits, (0.5, 6, 0.1))
-        self.client.write_gatt_char.assert_not_called()
+        self.client.write_gatt_char.assert_awaited_once_with(
+            protocol.UREVO_QUERY, protocol.UREVO_SUBSCRIBE, response=False
+        )
         self.assertFalse(self.c.armed)
         self.assertFalse(self.c._control_write_response)
 

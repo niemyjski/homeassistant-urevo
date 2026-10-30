@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.config_entries import ConfigEntries, ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, State
 from homeassistant.data_entry_flow import AbortFlow
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -20,6 +20,40 @@ vol = flow_module.vol
 
 
 class IntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_total_steps_restore_duplicate_disconnect_and_reset(self):
+        sensor_module = importlib.import_module("custom_components.urevo_local.sensor")
+        coordinator = types.SimpleNamespace(
+            address="00:11:22:33:44:55",
+            values={"steps": 20, "steps_elapsed": 40},
+            fresh=lambda key: True,
+        )
+        sensor = sensor_module.UrevoTotalStepsSensor(coordinator)
+        state = State(
+            "sensor.test", "100", {"last_session_steps": 20, "last_session_elapsed": 40}
+        )
+        with (
+            patch.object(
+                sensor_module.UrevoEntity, "async_added_to_hass", new_callable=AsyncMock
+            ),
+            patch.object(sensor, "async_get_last_state", return_value=state),
+        ):
+            await sensor.async_added_to_hass()
+        self.assertEqual(sensor.native_value, 100)
+        coordinator.values.update(steps=23, steps_elapsed=43)
+        sensor._update_counter()
+        self.assertEqual(sensor.native_value, 103)
+        coordinator.fresh = lambda key: False
+        coordinator.values.clear()
+        sensor._update_counter()
+        self.assertTrue(sensor.available)
+        self.assertEqual(sensor.native_value, 103)
+        coordinator.fresh = lambda key: True
+        coordinator.values.update(steps=2, steps_elapsed=3)
+        sensor._update_counter()
+        sensor._update_counter()
+        self.assertEqual(sensor.native_value, 105)
+        self.assertEqual(sensor.extra_state_attributes["last_session_steps"], 2)
+
     async def asyncSetUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

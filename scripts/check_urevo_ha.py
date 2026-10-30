@@ -51,15 +51,15 @@ async def main():
         entities = []
         for platform in (sensor, button, number, switch):
             await platform.async_setup_entry(hass, entry, entities.extend)
-        assert len(entities) == 9
-        assert len({e.unique_id for e in entities}) == 9
+        assert len(entities) == 11
+        assert len({e.unique_id for e in entities}) == 11
         assert all(
             not e.available for e in entities if isinstance(e, sensor.UrevoSensor)
         )
         assert all(
             not e.entity_registry_enabled_default
             for e in entities
-            if not isinstance(e, sensor.UrevoSensor)
+            if not isinstance(e, (sensor.UrevoSensor, sensor.UrevoTotalStepsSensor))
         )
         assert all(
             e.state_class is None
@@ -86,7 +86,7 @@ async def main():
         await c.async_shutdown()
         assert c.client is None and c._expiry_handle is None
     print(
-        "Real HA API: imports, options, 9 entities, telemetry expiry and cleanup: PASS"
+        "Real HA API: imports, options, 11 entities, telemetry expiry and cleanup: PASS"
     )
 
 

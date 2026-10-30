@@ -20,6 +20,8 @@ Other UREVO models are not supported. This project is not affiliated with UREVO.
 | Session distance | Reported workout distance, meters | Enabled |
 | Session time | Reported elapsed workout time, seconds | Enabled |
 | Session calories | Reported workout energy, kcal | Enabled |
+| Session steps | Device-reported steps over UREVO telemetry | Enabled |
+| Total steps | Restored accumulated steps across observed sessions | Enabled |
 | Start, Stop, Pause | Manual FTMS commands | Disabled |
 | Target speed | Explicit speed command; no stored target is reported | Disabled |
 | Arm next control | One-action authorization for Start or speed changes | Disabled |
@@ -27,7 +29,13 @@ Other UREVO models are not supported. This project is not affiliated with UREVO.
 Each telemetry field becomes unavailable after 30 seconds without its own update
 or on disconnect. Missing values are never replaced with zero. Session totals do
 not contribute to long-term statistics until device reset semantics are verified.
-There is no step counter, historical workout import, or UREVO app synchronization.
+Steps are read from the proprietary UREVO telemetry stream, never estimated from
+distance. Total steps persist the session baseline with the accumulated count.
+Duplicate packets and pauses add nothing; observed resets start a new baseline.
+Use Total steps as the source for daily/weekly Utility Meter helpers, with
+periodically resetting disabled and delta values disabled. There is no historical
+workout import or UREVO app synchronization. Sessions completed and reset while
+disconnected cannot be recovered; display comparison is still required.
 
 ## Installation
 

@@ -35,6 +35,7 @@ def install(files, config_root, apply=False, upgrade=False):
         "strings.json",
         "__init__.py",
         "protocol.py",
+        "steps.py",
         "coordinator.py",
         "config_flow.py",
         "entity.py",
